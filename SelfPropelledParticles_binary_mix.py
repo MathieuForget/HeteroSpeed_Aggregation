@@ -253,9 +253,6 @@ while t < tf :
         X=bc_pos(X)
         if intt%10 == 0: # estimate new particles boxes every 10 time steps
                 box_part_list,neighbox_list=boite(X,box_size,nx,nt,N,delta)
-        if t>=Mean_Pairwise_Distance_starting_time: # estimate pairwise distances during the last time steps of the simulation (used to define the aggregation criteria 1)
-            Nb+=1
-            D_cum+=distmat_square(X)
         if(intt%exit_fig==0):
           #Images of instantaneous particle positions. the temporal resolution is set by "exit_fig"
           images(intt,sizes)
@@ -268,46 +265,13 @@ while t < tf :
           #Aggf2.append(aggf2)
           #Aggf.append(aggf)
           #AggComp.append(aggComp)
-        D_fin=distmat_square(X)
 
-Pairwise_dist=distmat_square(X)
-name="tf_"+str(tf)+"v_"+str(v1)+"_pf_"+str(packing_fraction)+".csv"
-Size_distrib=[gg.size(i) for i in range(len(gg))]
-# open the file in the write mode
-with open('Nagg'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Nagg)
-    f.close()
-with open('Sagg'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Sagg)
-    f.close()
-with open('Aggf'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Aggf)
-    f.close()
-with open('Size_distribution'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Size_distrib)
-    f.close()
+D_fin=distmat_square(X)
 
 ##### Groups identification #####
-#Aggregation criteria 1: the focal particle remained close (mean pairwise distance <Threshold2) with a group (size > threshold 2) of neighbours over the 1% last time steps of the simulation 
-threshold1=2*R0 #the maximal mean distance over the last 100 time steps of the simulation between two particles to consider that they belong to the same aggregate
-D_close_neighbors=torch.where(torch.sqrt(D_cum/Nb) < threshold1, torch.ones(1,device=device), 0*torch.ones(1,device=device))
-Nb_close_neighbors=torch.sum(D_close_neighbors,1) 
-threshold2=4 #the minimal number of neighbours to consider that a group of particle (the focal particle + its neighbours) is an aggregate
-Agg_criteria_1=torch.where(Nb_close_neighbors >= threshold2, torch.ones(1,device=device), 0*torch.ones(1,device=device)) 
 
 interaction=torch.where(torch.sqrt(D_fin) < R0, 1*torch.ones(1,device=device), 0*torch.ones(1,device=device)) # 2 particles are considered connected (=1) if their pairwise distance at the end of the simulation (<R0))
+interaction=interaction.fill_diagonal_(0) # make sure that the diagonal is filled with 0
 Interaction=interaction.to("cpu") # torch tensor -> numpy array
 Interaction=Interaction.numpy()
 node_names = [i for i in range(N)] #node names= particles id = i or j index
@@ -318,22 +282,9 @@ g.vs['label'] = node_names #name the nodes
 gg=g.clusters() # identify the clusters = connected components of the graph
 Agg_List=[gg[i] for i in range(len(gg)) if len(gg[i])>threshold2] # clusters whose size is lower than threshold2 are discarded
 Agg_List=np.hstack(Agg_List) # List of clustered particles
-Agg_criteria_2=0*torch.ones(N,device=device)
-Agg_criteria_2[Agg_List]=torch.ones(1,device=device) # 1 if a particle is clustered
-AGG_STAT=Agg_criteria_1*Agg_criteria_2 # 1 if a particle is aggregated (=meets aggregation criteria 1 & 2), else 0
+Agg_STAT=0*torch.ones(N,device=device)
+Agg_STAT[Agg_List]=torch.ones(1,device=device) # 1 if a particle is clustered
 #
-
-interaction_AggPartOnly=interaction.fill_diagonal_(0) # make sure that the diagonal is filled with 0
-interaction_AggPartOnly=interaction_AggPartOnly*AGG_STAT[:,None]# unaggregated particles are not considered : all their interaction are set to 0 in the adjacency matrix
-interaction_AggPartOnly=interaction_AggPartOnly*AGG_STAT # filled the line and column of unaggregated particles (criteria 1*2) to 0
-Interaction_AggPartOnly=interaction_AggPartOnly.to("cpu") # torch tensor -> numpy array
-Interaction_AggPartOnly=Interaction_AggPartOnly.numpy()
-Interaction_AggPartOnly=pd.DataFrame(Interaction_AggPartOnly,index=node_names, columns=node_names)
-Values = Interaction_AggPartOnly.values 
-g = ig.Graph.Adjacency((Values > 0).tolist(),diag=False) # build the graph from the adjacency matrix = "Interaction", diag=False to discard the diagonal
-g.vs['label'] = node_names #name the nodes
-gg=g.clusters() # identify the clusters = connected components of the graph
-Agg_List=np.hstack(Agg_List) # List of clustered particles
 
 ##### Final order parameters estimation #####
 #Aggregated fraction
@@ -387,9 +338,30 @@ v2_part_degree_self=np.mean(Interaction_AggPartOnly.iloc[int(f1*N):,int(f1*N):].
 # number of neighbors from the other type
 v2_part_degree_nonself=np.mean(Interaction_AggPartOnly.iloc[int(f1*N):,:int(f1*N)].sum(1)[Interaction_AggPartOnly.iloc[int(f1*N):].sum(1)!=0])
 
-print("v1_part_degree_tot=", v1_part_degree_tot)
-print("v1_part_degree_self=", v1_part_degree_self)
-print("v1_part_degree_nonself=", v1_part_degree_nonself)
-print("v2_part_degree_tot=", v2_part_degree_tot)
-print("v2_part_degree_self=", v2_part_degree_self)
-print("v2_part_degree_nonself=", v2_part_degree_nonself)
+name="tf_"+str(tf)+"v_"+str(v1)+"_pf_"+str(packing_fraction)+".csv"
+Size_distrib=[gg.size(i) for i in range(len(gg))]
+# open the file in the write mode
+with open('Nagg'+name, 'w') as f:
+    # create the csv writer
+    writer = csv.writer(f)
+    # write a row to the csv file
+    writer.writerow(Nagg)
+    f.close()
+with open('Sagg'+name, 'w') as f:
+    # create the csv writer
+    writer = csv.writer(f)
+    # write a row to the csv file
+    writer.writerow(Sagg)
+    f.close()
+with open('Aggf'+name, 'w') as f:
+    # create the csv writer
+    writer = csv.writer(f)
+    # write a row to the csv file
+    writer.writerow(Aggf)
+    f.close()
+with open('Size_distribution'+name, 'w') as f:
+    # create the csv writer
+    writer = csv.writer(f)
+    # write a row to the csv file
+    writer.writerow(Size_distrib)
+    f.close()
