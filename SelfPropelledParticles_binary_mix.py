@@ -1,3 +1,4 @@
+
 #####  Python libraries import #####
 import numpy as np
 import matplotlib
@@ -16,6 +17,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 #####  Simulation parameters #####
+d=2 #system dimension
 packing_fraction=0.07 
 N=10000 # population size
 box_size= 28
@@ -59,12 +61,17 @@ noise=10 # noise intensity
 tau=5 # characteristic time for the polarization to align in the scattering direction defined by v=dr/dt
 tf= 100
 dt= 0.01
+
+###
+steps=tf/dt
+###
+
 N_fig=100 # number of snapshots of the system saved during the simulation
 exit_fig=int(steps/N_fig)
 N_op=100# number of order parameter measurements during the simulation
 exit_op=int(steps/N_op)
 nb=np.int64(L/box_size) # number of boxes
-steps=tf/dt
+
 Mean_Pairwise_Distance_starting_time=0.99*tf # time at which the code start recording particles pairwise distances
 intt=0
 # order parameter dynamics lists
@@ -205,7 +212,7 @@ n = n.to(device)
 D_cum=torch.zeros(N,N,device="cuda") #pairwise distances matrix for the aggregation criteria
 box_part_list,neighbox_list=boite(X,box_size,nx,nt,N,delta)
 t=0
-sizes=20 # particles size for plotting
+sizes=5 # particles size for plotting
 
 def images(figindex,sizes):
     plt.figure(figsize=(8,8))
@@ -229,6 +236,7 @@ def images(figindex,sizes):
     
 ##### System evolution #####
 t=0
+
 while t < tf :
         F=torch.zeros(N,2,device="cuda") #zero forces
         #loop over boxes
@@ -237,11 +245,14 @@ while t < tf :
                 num_box=len(X_box)     #number of particles in box i
                 if num_box != 0 :
                         zero_tensor=torch.zeros(num_box,num_box,device=device)  #used to calculate forces
-                        D_inbox = distmat_square_inbox(X_box)   # pariwise distance between particles in box i F_box=force_field_inbox(X_box,D_inbox,zero_tensor)    #forces among particles in box i
-                        F[box_part_list[i]]+=F_box   #adding to the global force tensor
-                        X_box_neigh = X[neighbox_list[i]]    #position of particles in neighbor boxes zero_tensor=torch.zeros(len(box_part_list[i]),len(neighbox_list[i]),device=device) D_interbox=distmat_square_interbox(X_box,X_box_neigh)    # pairwise distance particles in box i and particles in the neighboring boxese
+                        D_inbox = distmat_square_inbox(X_box)       #distance among particles in box i
+                        F_box=force_field_inbox(X_box,D_inbox,zero_tensor)    #forces among particles in box i
+                        F[box_part_list[i]]+=F_box      #adding to the global force tensor
+                        X_box_neigh = X[neighbox_list[i]]    #position of particles in neighbor boxes
+                        zero_tensor=torch.zeros(len(box_part_list[i]),len(neighbox_list[i]),device=device)
+                        D_interbox=distmat_square_interbox(X_box,X_box_neigh)    #distance between particles in box i and particles in the neighboring boxese
                         FF_target_box,FF_reaction=force_field_interbox(X_box,X_box_neigh,D_interbox,zero_tensor) #forces among particles in box i and in neighboring boxes, also reaction force in the neighboring particles is calculated
-                        F[box_part_list[i]]+=FF_target_box  #add forces produced in the interaction with particles in neighboring boxes
+                        F[box_part_list[i]]+=FF_target_box  #add forces produced in the interaction with part in neighboring boxes
                         F[neighbox_list[i]]+=FF_reaction
         #evolve all positions
         dX = mu*F*dt + v0[:,None]*n*dt
@@ -269,6 +280,7 @@ while t < tf :
 D_fin=distmat_square(X)
 
 ##### Groups identification #####
+threshold=4
 
 interaction=torch.where(torch.sqrt(D_fin) < R0, 1*torch.ones(1,device=device), 0*torch.ones(1,device=device)) # 2 particles are considered connected (=1) if their pairwise distance at the end of the simulation (<R0))
 interaction=interaction.fill_diagonal_(0) # make sure that the diagonal is filled with 0
@@ -280,7 +292,7 @@ Values = Interaction.values
 g = ig.Graph.Adjacency((Values > 0).tolist(),diag=False) # build the graph from the adjency matrix = "Interaction", diag=False to discard the diagonal
 g.vs['label'] = node_names #name the nodes
 gg=g.clusters() # identify the clusters = connected components of the graph
-Agg_List=[gg[i] for i in range(len(gg)) if len(gg[i])>threshold2] # clusters whose size is lower than threshold2 are discarded
+Agg_List=[gg[i] for i in range(len(gg)) if len(gg[i])>threshold] # clusters whose size is lower than threshold are discarded
 Agg_List=np.hstack(Agg_List) # List of clustered particles
 Agg_STAT=0*torch.ones(N,device=device)
 Agg_STAT[Agg_List]=torch.ones(1,device=device) # 1 if a particle is clustered
@@ -288,9 +300,9 @@ Agg_STAT[Agg_List]=torch.ones(1,device=device) # 1 if a particle is clustered
 
 ##### Final order parameters estimation #####
 #Aggregated fraction
-AggFract1=torch.sum(AGG_STAT[:n1])/n1
-AggFract2=torch.sum(AGG_STAT[n1:])/(N-n1)
-AggFract=torch.sum(AGG_STAT)/N
+AggFract1=torch.sum(Agg_STAT[:n1])/n1
+AggFract2=torch.sum(Agg_STAT[n1:])/(N-n1)
+AggFract=torch.sum(Agg_STAT)/N
 print("aggregated particles fraction = "+str(float(AggFract)))
 print("aggregated type 1 particles fraction = "+str(float(AggFract1)))
 print("aggregated type 2 particles fraction = "+str(float(AggFract2)))
@@ -302,9 +314,10 @@ Sagg_thr=[s for s in Sagg if s>4] # the clusters composed of less than 5 particl
 Nagg_thr=len(Sagg_thr)# number of aggregates
 print('Nagg=', Nagg_thr)
 print('Mean Agg Size=',np.mean(Sagg_thr))
+Size_distrib=[gg.size(i) for i in range(len(gg))] # aggregates size distribution
 
 # aggregates composition 
-AggComp_v1=[sum([1 for k in gg[i] if k < int(f1*N)])/len(gg[i]) for i in range(len(gg)) if len(gg[i])>threshold2] # aggregates composition = number of v1-particles/ aggregate size
+AggComp_v1=[sum([1 for k in gg[i] if k < int(f1*N)])/len(gg[i]) for i in range(len(gg)) if len(gg[i])>threshold] # aggregates composition = number of v1-particles/ aggregate size
 Var_AggComp=np.var(AggComp_v1) # variance in aggregates composition
 Mean_AggComp=np.mean(AggComp_v1) # mean aggregates composition
 print('Mean Agg Comp=',Mean_AggComp)
@@ -313,8 +326,8 @@ print('Var Agg Comp=', Var_AggComp)
 # namely when the v1-particles and v2-particles are seggregated in the different aggregates
 
 Agg_mean_size=np.mean(Sagg_thr)
-N_agg_1=int(torch.sum(AGG_STAT[:n1])/Agg_mean_size)
-N_agg_2=int(torch.sum(AGG_STAT[n1:])/Agg_mean_size)
+N_agg_1=int(torch.sum(Agg_STAT[:n1])/Agg_mean_size)
+N_agg_2=int(torch.sum(Agg_STAT[n1:])/Agg_mean_size)
 Sorted_agg_comp=[0 for i in range(int(N_agg_1+N_agg_2))]
 for j in range(int(N_agg_1+N_agg_2)):
   if j<=N_agg_1:
@@ -322,46 +335,24 @@ for j in range(int(N_agg_1+N_agg_2)):
 norm_var=Var_AggComp/np.var(Sorted_agg_comp)
 print('Var Agg Comp (standardized)=', norm_var)
 
+# particles connectivity
+
 # v1-particles
 # total number of neighbors
-v1_part_degree_tot=np.mean(Interaction_AggPartOnly.sum(1)[:int(f1*N)][Interaction_AggPartOnly.iloc[:int(f1*N)].sum(1)!=0]) 
+v1_part_degree_tot=np.mean(Interaction.sum(1)[:int(f1*N)][Interaction.iloc[:int(f1*N)].sum(1)!=0]) 
 # number of neighbors from the same type
-v1_part_degree_self=np.mean(Interaction_AggPartOnly.iloc[:int(f1*N),:int(f1*N)].sum(1)[Interaction_AggPartOnly.iloc[:int(f1*N)].sum(1)!=0])
+v1_part_degree_self=np.mean(Interaction.iloc[:int(f1*N),:int(f1*N)].sum(1)[Interaction.iloc[:int(f1*N)].sum(1)!=0])
 # number of neighbors from the other type
-v1_part_degree_nonself=np.mean(Interaction_AggPartOnly.iloc[:int(f1*N),int(f1*N):].sum(1)[Interaction_AggPartOnly.iloc[:int(f1*N):].sum(1)!=0])
-
+v1_part_degree_nonself=np.mean(Interaction.iloc[:int(f1*N),int(f1*N):].sum(1)[Interaction.iloc[:int(f1*N):].sum(1)!=0])
+print('v1-particles mean connectivity='+str(v1_part_degree_tot))
 # v2-particles
 # total number of neighbors
-v2_part_degree_tot=np.mean(Interaction_AggPartOnly.sum(axis=1)[int(f1*N):][Interaction_AggPartOnly.iloc[int(f1*N):].sum(axis=1)!=0]) 
+v2_part_degree_tot=np.mean(Interaction.sum(axis=1)[int(f1*N):][Interaction.iloc[int(f1*N):].sum(axis=1)!=0]) 
 # number of neighbors from the same type
-v2_part_degree_self=np.mean(Interaction_AggPartOnly.iloc[int(f1*N):,int(f1*N):].sum(1)[Interaction_AggPartOnly.iloc[int(f1*N):].sum(1)!=0])
+v2_part_degree_self=np.mean(Interaction.iloc[int(f1*N):,int(f1*N):].sum(1)[Interaction.iloc[int(f1*N):].sum(1)!=0])
 # number of neighbors from the other type
-v2_part_degree_nonself=np.mean(Interaction_AggPartOnly.iloc[int(f1*N):,:int(f1*N)].sum(1)[Interaction_AggPartOnly.iloc[int(f1*N):].sum(1)!=0])
+v2_part_degree_nonself=np.mean(Interaction.iloc[int(f1*N):,:int(f1*N)].sum(1)[Interaction.iloc[int(f1*N):].sum(1)!=0])
+print('v2-particles mean connectivity='+str(v2_part_degree_tot))
 
-name="tf_"+str(tf)+"v_"+str(v1)+"_pf_"+str(packing_fraction)+".csv"
-Size_distrib=[gg.size(i) for i in range(len(gg))]
-# open the file in the write mode
-with open('Nagg'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Nagg)
-    f.close()
-with open('Sagg'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Sagg)
-    f.close()
-with open('Aggf'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Aggf)
-    f.close()
-with open('Size_distribution'+name, 'w') as f:
-    # create the csv writer
-    writer = csv.writer(f)
-    # write a row to the csv file
-    writer.writerow(Size_distrib)
-    f.close()
+
+
