@@ -335,6 +335,12 @@ for j in range(int(N_agg_1+N_agg_2)):
 norm_var=Var_AggComp/np.var(Sorted_agg_comp)
 print('Var Agg Comp (standardized)=', norm_var)
 
+# bias in v1-particles aggregates composition
+
+Bias=torch.sum(Agg_STAT[:n1])/(torch.sum(Agg_STAT[:n1])+torch.sum(Agg_STAT[n1:])-f1
+print('Bias='+str(Bias))
+
+
 # particles connectivity
 
 # v1-particles
