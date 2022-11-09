@@ -1,5 +1,6 @@
 
 #####  Python libraries import #####
+
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
@@ -13,7 +14,9 @@ import igraph as ig
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
+
 #####  Simulation parameters #####
+
 d=2 #system dimension
 packing_fraction=0.07 
 N=10000 # population size
@@ -57,23 +60,17 @@ noise=10 # noise intensity
 tau=5 # characteristic time for the polarization to align in the scattering direction defined by v=dr/dt
 tf= 100
 dt= 0.01
-
-###
-steps=tf/dt
-###
-
+steps=tf/dt # number of simulation steps
 N_fig=100 # number of snapshots of the system saved during the simulation
 exit_fig=int(steps/N_fig)
 N_op=100# number of order parameter measurements during the simulation
 exit_op=int(steps/N_op)
-nb=np.int64(L/box_size) # number of boxes
-
-Mean_Pairwise_Distance_starting_time=0.99*tf # time at which the code start recording particles pairwise distances
 intt=0
-# order parameter dynamics lists
-Nagg,Sagg,Aggf1,Aggf2,Aggf,AggComp=[],[],[],[],[],[]
+sizes=5 # particles size for plotting
+
 
 ##### Torch molecular simulation function #####
+
 def bc_pos(X): # particles position peridocity
         return torch.remainder(X,ll)#
 def bc_diff(D): # particles distances periodicity
@@ -82,14 +79,11 @@ def distmat_square_inbox(X): # pairwise distances within a box
         D = torch.sum((X[:,None,:]-X[None,:,:])**2,axis=2)
         D = torch.where(D < 0.00001*torch.ones(1,device=device), torch.ones(1,device=device),D)
         return D
-
 def distmat_square_interbox(X,Y):  # pairwise distances between bo
     D = torch.sum(bc_diff(X[:,None,:]-Y[None,:,:])**2,axis=2)
     return D
-    
 def distmat_square(X): # pairwise distances between every particles
         return torch.sum(bc_diff(X[:,None,:]-X[None,:,:])**2,axis=2)
-
 def force_mod(R,zero_tensor): # interaction forces calculation
         R=torch.sqrt(R)
         frep=-Frep*(1/Req-1/R)
@@ -99,11 +93,9 @@ def force_mod(R,zero_tensor): # interaction forces calculation
         fadh=torch.where(R<R0,fadh,zero_tensor)
         force=fadh+frep
         return  force
-
 def force_field_inbox(X,D,zero_tensor): # force field in the focal box
         FF=torch.sum(force_mod(D,zero_tensor)[:,:,None]*(X[:,None,:]-X[None,:,:]),axis=1)
         return FF 
-
 def force_field_interbox(X,Y,D,zero_tensor): # force field with the neighbouring boxes
         if len(X)==0 or len(Y) == 0:
                 return torch.zeros(2,device=device),torch.zeros(2,device=device)
@@ -112,7 +104,6 @@ def force_field_interbox(X,Y,D,zero_tensor): # force field with the neighbouring
                 FF_target_box = torch.sum(force[:,:,None]*bc_diff((X[:,None,:]-Y[None,:,:])),axis=1)
                 FF_reaction = -torch.sum(force[:,:,None]*bc_diff((X[:,None,:]-Y[None,:,:])),axis=0)
                 return FF_target_box,FF_reaction
-
 def autovel(dX,n):
         theta=torch.atan2(dX[:,1],dX[:,0])
         dXabs=torch.sqrt(torch.sum(dX**2,1))
@@ -123,7 +114,6 @@ def autovel(dX,n):
         n[:,0]=torch.cos(theta)
         n[:,1]=torch.sin(theta)
         return n
-
 def boite(X,box_size,nx,nt,N,delta):
         box_size2=box_size/4
         box=(X[:,0]/box_size).to(dtype=int)+nx*(X[:,1]/box_size).to(dtype=int)
@@ -133,12 +123,10 @@ def boite(X,box_size,nx,nt,N,delta):
         # list of particles in the focal box
         box_part_list=list( [] for i in range(nt))
         box_part_list2=list( [] for i in range(16*nt))
-    
         #counting the particles on each box and composing the box list of particles
         for i in range(N):
                 box_part_list[box[i]].append(i)
-                box_part_list2[box2[i]].append(i)
-                
+                box_part_list2[box2[i]].append(i)   
         #constructing the lists of particles in the neighbor boxes
         neighbox_list=list( [] for i in range(nt))
         for i in range(nt):
@@ -164,7 +152,6 @@ def boite(X,box_size,nx,nt,N,delta):
                 neighbox_list[i].extend(box_part_list2[int(zz9)])
                 neighbox_list[i].extend(box_part_list2[int(zz10)])
         return box_part_list,neighbox_list
-
 def OP_dynamics(Coords):
   Pairwise_dist=distmat_square(Coords)
   interaction=torch.where(torch.sqrt(Pairwise_dist) < R0, 1*torch.ones(1,device=device), 0*torch.ones(1,device=device)) # 2 particles are considered connected (=1) if their pairwise distance at the end of the simulation (<R0))
@@ -195,10 +182,11 @@ def OP_dynamics(Coords):
   Mean_AggComp=np.mean(AggComp_v1) # mean aggregates composition
   return float(Nagg_thr),float(Mean_sagg),float(AggFract)
 
+
 ##### Initialization #####
-Nb=0 # count the number of pairwise distances calculation for the aggregation criteria
-#defining torch device, tensors and sending tensor to devices
+
 intt=0
+#defining torch device, tensors and sending tensor to devices
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 delta=torch.tensor([0.001]).to(device)
 v0 = v0.to(device)
@@ -208,7 +196,8 @@ n = n.to(device)
 D_cum=torch.zeros(N,N,device="cuda") #pairwise distances matrix for the aggregation criteria
 box_part_list,neighbox_list=boite(X,box_size,nx,nt,N,delta)
 t=0
-sizes=5 # particles size for plotting
+# order parameter dynamics lists
+Nagg,Sagg,Aggf1,Aggf2,Aggf,AggComp=[],[],[],[],[],[]
 
 def images(figindex,sizes):
     plt.figure(figsize=(8,8))
@@ -231,7 +220,6 @@ def images(figindex,sizes):
     plt.close()
     
 ##### System evolution #####
-t=0
 
 while t < tf :
         F=torch.zeros(N,2,device="cuda") #zero forces
@@ -272,12 +260,12 @@ while t < tf :
           #Aggf2.append(aggf2)
           #Aggf.append(aggf)
           #AggComp.append(aggComp)
-
 D_fin=distmat_square(X)
 
-##### Groups identification #####
-threshold=4
 
+##### Groups identification #####
+
+threshold=4
 interaction=torch.where(torch.sqrt(D_fin) < R0, 1*torch.ones(1,device=device), 0*torch.ones(1,device=device)) # 2 particles are considered connected (=1) if their pairwise distance at the end of the simulation (<R0))
 interaction=interaction.fill_diagonal_(0) # make sure that the diagonal is filled with 0
 Interaction=interaction.to("cpu") # torch tensor -> numpy array
@@ -292,9 +280,11 @@ Agg_List=[gg[i] for i in range(len(gg)) if len(gg[i])>threshold] # clusters whos
 Agg_List=np.hstack(Agg_List) # List of clustered particles
 Agg_STAT=0*torch.ones(N,device=device)
 Agg_STAT[Agg_List]=torch.ones(1,device=device) # 1 if a particle is clustered
-#
+
+
 
 ##### Final order parameters estimation #####
+
 #Aggregated fraction
 AggFract1=torch.sum(Agg_STAT[:n1])/n1
 AggFract2=torch.sum(Agg_STAT[n1:])/(N-n1)
@@ -336,9 +326,8 @@ print('Var Agg Comp (standardized)=', norm_var)
 Bias=torch.sum(Agg_STAT[:n1])/(torch.sum(Agg_STAT[:n1])+torch.sum(Agg_STAT[n1:])-f1
 print('Bias='+str(Bias))
 
-
 # particles connectivity
-
+                               
 # v1-particles
 # total number of neighbors
 v1_part_degree_tot=np.mean(Interaction.sum(1)[:int(f1*N)][Interaction.iloc[:int(f1*N)].sum(1)!=0]) 
