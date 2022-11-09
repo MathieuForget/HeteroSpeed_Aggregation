@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import math as math
 import random as rand
 import sys
-import csv
 import pandas as pd
 import torch
 import igraph as ig
