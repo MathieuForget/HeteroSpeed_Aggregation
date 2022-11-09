@@ -20,7 +20,7 @@ print(device)
 d=2 #system dimension
 packing_fraction=0.07 
 N=10000 # population size
-box_size= 28
+box_size= 28 # the simulation space is subdivided into boxes to save calculation time
 mu= 1
 Frep=40
 Fadh= 7
@@ -40,12 +40,11 @@ else:
   Lx=Lx-Lx%box_size
   if Lx == box_size:
     box_size=int(Lx/2)
-print(Lx,box_size)
 Ly=Lx
 nx,ny=int(Lx/box_size),int(Ly/box_size)
 nt=nx*ny
 print("rho=%f, Lx=%d, nx=%d, ny=%d, nt=%d"%(N/(Lx*Ly),Lx,nx,ny,nt))
-f1=0.5 # Fraction of each particles type in the population
+f1=0.5 # Fraction of v1-particles type in the mix
 n1=np.int(f1*N) # Number of v1-particles
 v1,v2=8,8 # particles motitity
 aux1,aux2=torch.ones(n1)*v1,torch.ones(N-n1)*v2
