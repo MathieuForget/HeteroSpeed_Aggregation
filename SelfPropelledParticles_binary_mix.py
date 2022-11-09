@@ -11,8 +11,6 @@ import csv
 import pandas as pd
 import torch
 import igraph as ig
-import matplotlib.pyplot as plt
-import math
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
