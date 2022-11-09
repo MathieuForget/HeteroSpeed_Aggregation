@@ -322,7 +322,7 @@ print('Var Agg Comp (standardized)=', norm_var)
 
 # bias in v1-particles aggregates composition
 
-Bias=torch.sum(Agg_STAT[:n1])/(torch.sum(Agg_STAT[:n1])+torch.sum(Agg_STAT[n1:])-f1
+Bias=torch.sum(Agg_STAT[:n1])/(torch.sum(Agg_STAT[:n1])+torch.sum(Agg_STAT[n1:]))-f1
 print('Bias='+str(Bias))
 
 # particles connectivity
