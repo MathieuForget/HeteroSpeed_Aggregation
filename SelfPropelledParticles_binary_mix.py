@@ -193,7 +193,6 @@ v0 = v0.to(device)
 X = X.to(device)
 L = L.to(device)
 n = n.to(device)
-D_cum=torch.zeros(N,N,device="cuda") #pairwise distances matrix for the aggregation criteria
 box_part_list,neighbox_list=boite(X,box_size,nx,nt,N,delta)
 t=0
 # order parameter dynamics lists
