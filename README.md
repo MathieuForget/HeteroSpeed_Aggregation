@@ -1,7 +1,9 @@
 **Required Python version:**
-Python 3.7 or later versions
+Python 3 
 
-**Required Python libraries:**
+**Code Structure:**
+
+1) Required Python libraries:\n
 numpy,
 matplotlib.pyplot,
 math,
@@ -11,3 +13,4 @@ pandas,
 torch and
 igraph
 
+2) Model parameters:\n
