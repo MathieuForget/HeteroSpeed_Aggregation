@@ -25,11 +25,11 @@ Frep=40 # repulsive strength
 Fadh= 7 # adhesive strength
 Req= 1.1 # equilibrium diameter
 R0= 1.6 # interaction range 
+f1=0.5 # Fraction of v1-particles type in the mix
+n1=np.int(f1*N) # Number of v1-particles
 v1,v2=8,8 # particles motility
 aux1,aux2=torch.ones(n1)*v1,torch.ones(N-n1)*v2
 v0=torch.cat((aux1,aux2),dim=-1)
-f1=0.5 # Fraction of v1-particles type in the mix
-n1=np.int(f1*N) # Number of v1-particles
 n = torch.rand(N,d)-0.5  # initial particles auto-propulasion direction
 nabs=torch.sqrt(torch.sum(n**2,1))
 n=torch.div(n,nabs[:,None])
