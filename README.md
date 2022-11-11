@@ -1,3 +1,5 @@
+This folder contains both a ".py" file and a ".ipynb" version of the code that can be run using a Jupyter notebook.
+
 **Authors:**
 
 Mathieu Forget (mathieu.forget@live.fr), Leonardo Gregory Brunnet (leon@if.ufrgs.br)
