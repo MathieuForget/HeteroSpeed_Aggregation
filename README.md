@@ -1,3 +1,8 @@
+**Authors:**
+
+Mathieu Forget (mathieu.forget@live.fr)
+Leonardo Gregory Brunnet (leon@if.ufrgs.br)
+
 **Required Python version:**
 
 Python 3 
