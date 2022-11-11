@@ -20,12 +20,25 @@ print(device)
 d=2 #system dimension
 packing_fraction=0.07 
 N=10000 # population size
+mu= 1 #mobility
+Frep=40 # repulsive strength
+Fadh= 7 # adhesive strength
+Req= 1.1 # equilibrium diameter
+R0= 1.6 # interaction range 
+v1,v2=8,8 # particles motility
+aux1,aux2=torch.ones(n1)*v1,torch.ones(N-n1)*v2
+v0=torch.cat((aux1,aux2),dim=-1)
+f1=0.5 # Fraction of v1-particles type in the mix
+n1=np.int(f1*N) # Number of v1-particles
+n = torch.rand(N,d)-0.5  # initial particles auto-propulasion direction
+nabs=torch.sqrt(torch.sum(n**2,1))
+n=torch.div(n,nabs[:,None])
+noise=10 # noise intensity
+tau=5 # characteristic time for the polarization to align in the scattering direction defined by v=dr/dt
+tf= 100 # simulation time
+dt= 0.01 #timesteps
+
 box_size= 28 # the simulation space is subdivided into boxes to save calculation time
-mu= 1
-Frep=40
-Fadh= 7
-Req= 1.1
-R0= 1.6
 while box_size%4 != 0:
   print("Box size should be integer multiple of 4")
   print("Enter new box_size value?")
@@ -42,24 +55,13 @@ else:
     box_size=int(Lx/2)
 Ly=Lx
 nx,ny=int(Lx/box_size),int(Ly/box_size)
-nt=nx*ny
+nt=nx*ny # box number
 print("rho=%f, Lx=%d, nx=%d, ny=%d, nt=%d"%(N/(Lx*Ly),Lx,nx,ny,nt))
-f1=0.5 # Fraction of v1-particles type in the mix
-n1=np.int(f1*N) # Number of v1-particles
-v1,v2=8,8 # particles motitity
-aux1,aux2=torch.ones(n1)*v1,torch.ones(N-n1)*v2
-v0=torch.cat((aux1,aux2),dim=-1)
-n = torch.rand(N,d)-0.5  # initial particles auto-propulasion direction
-nabs=torch.sqrt(torch.sum(n**2,1))
-n=torch.div(n,nabs[:,None])
 L=torch.tensor([Lx,Ly])
 X = torch.rand(N,d) 
 X=X*(L)  # initial particles position
 ll= Lx
-noise=10 # noise intensity
-tau=5 # characteristic time for the polarization to align in the scattering direction defined by v=dr/dt
-tf= 100
-dt= 0.01
+
 steps=tf/dt # number of simulation steps
 N_fig=100 # number of snapshots of the system saved during the simulation
 exit_fig=int(steps/N_fig)
