@@ -223,7 +223,7 @@ def images(figindex,sizes):
 ##### System evolution #####
 
 while t < tf :
-        F=torch.zeros(N,2,device="cuda") #zero forces
+        F=torch.zeros(N,2,device=device) #zero forces
         #loop over boxes
         for i in range(nt):
                 X_box =X[box_part_list[i]]  #position of particles in box i
